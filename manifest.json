@@ -23,14 +23,13 @@
     "http://*/*",
     "https://*/*"
   ],
-  "applications": {
+  "browser_specific_settings": {
     "gecko": {
       "id": "redirector@einaregilsson.com"
     }
   },
   "background": {
-    "service_worker": "js/background.js",
-    "type": "module"
+    "service_worker": "js/background.js"
   },
   "options_ui": {
     "page": "popup.html"
