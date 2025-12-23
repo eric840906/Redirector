@@ -190,16 +190,26 @@ async function checkRedirects(details) {
 
 
 			log('Redirecting ' + details.url + ' ===> ' + result.redirectTo + ', type: ' + details.type + ', pattern: ' + r.includePattern + ' which is in Rule : ' + r.description);
-			if(enableNotifications){
-				sendNotifications(r, details.url, result.redirectTo);
-			}
-			ignoreNextRequest[result.redirectTo] = new Date().getTime();
 
-			// CODE ARCHAEOLOGY: MV3 Migration - tabs.update for redirect
-			// Original (MV2): return { redirectUrl: result.redirectTo };
-			// New (MV3): chrome.tabs.update() for async redirect
-			// Reason: MV3 removed blocking webRequest, must use tabs API
-			chrome.tabs.update(details.tabId, {url: result.redirectTo});
+			// CODE ARCHAEOLOGY: MV3 Migration - CRITICAL LIMITATION
+			// Original (MV2): return { redirectUrl: result.redirectTo } - redirected ANY request type
+			// New (MV3): chrome.tabs.update() ONLY works for main_frame/sub_frame navigations
+			// Reason: MV3 removed blocking webRequest - can't redirect sub-resources (images, scripts, etc.)
+			// Limitation: Sub-resource redirects (image, script, stylesheet, etc.) will NOT work in MV3
+			// Full solution: Requires chrome.declarativeNetRequest API (not implemented yet)
+
+			if (details.type === 'main_frame' || details.type === 'sub_frame') {
+				// Only redirect actual page navigations, not sub-resources
+				if(enableNotifications){
+					sendNotifications(r, details.url, result.redirectTo);
+				}
+				ignoreNextRequest[result.redirectTo] = new Date().getTime();
+				chrome.tabs.update(details.tabId, {url: result.redirectTo});
+			} else {
+				// Sub-resource redirect attempted (image, script, etc.)
+				// Cannot redirect in MV3 webRequest - would need declarativeNetRequest
+				log('WARNING: Cannot redirect sub-resource type "' + details.type + '" in MV3 - skipping redirect');
+			}
 			return;
 		}
 	}
