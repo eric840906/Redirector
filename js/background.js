@@ -4,7 +4,7 @@
 // New (MV3): Single service worker file, must import dependencies
 
 // Import redirect.js for Redirect class
-importScripts('redirect.js', 'migration.js');
+importScripts('redirect.js', 'migration.js', 'declarative-rules.js');
 
 //This is the background script. It is responsible for actually redirecting requests,
 //as well as monitoring changes in the redirects and the disabled status and reacting to them.
@@ -191,25 +191,19 @@ async function checkRedirects(details) {
 
 			log('Redirecting ' + details.url + ' ===> ' + result.redirectTo + ', type: ' + details.type + ', pattern: ' + r.includePattern + ' which is in Rule : ' + r.description);
 
-			// CODE ARCHAEOLOGY: MV3 Migration - CRITICAL LIMITATION
-			// Original (MV2): return { redirectUrl: result.redirectTo } - redirected ANY request type
-			// New (MV3): chrome.tabs.update() ONLY works for main_frame/sub_frame navigations
-			// Reason: MV3 removed blocking webRequest - can't redirect sub-resources (images, scripts, etc.)
-			// Limitation: Sub-resource redirects (image, script, stylesheet, etc.) will NOT work in MV3
-			// Full solution: Requires chrome.declarativeNetRequest API (not implemented yet)
+			// CODE ARCHAEOLOGY: MV3 Migration - declarativeNetRequest handles actual redirect
+			// Original (MV2): return { redirectUrl: result.redirectTo } - webRequest did the redirect
+			// New (MV3): declarativeNetRequest does the redirect, webRequest only logs/notifies
+			// Reason: MV3 removed blocking webRequest, requires declarativeNetRequest API
+			// This listener is now non-blocking and used only for logging and notifications
 
-			if (details.type === 'main_frame' || details.type === 'sub_frame') {
-				// Only redirect actual page navigations, not sub-resources
-				if(enableNotifications){
-					sendNotifications(r, details.url, result.redirectTo);
-				}
-				ignoreNextRequest[result.redirectTo] = new Date().getTime();
-				chrome.tabs.update(details.tabId, {url: result.redirectTo});
-			} else {
-				// Sub-resource redirect attempted (image, script, etc.)
-				// Cannot redirect in MV3 webRequest - would need declarativeNetRequest
-				log('WARNING: Cannot redirect sub-resource type "' + details.type + '" in MV3 - skipping redirect');
+			if(enableNotifications){
+				sendNotifications(r, details.url, result.redirectTo);
 			}
+			ignoreNextRequest[result.redirectTo] = new Date().getTime();
+
+			// Redirect is handled by declarativeNetRequest dynamic rules
+			// This listener is just for logging and notifications
 			return;
 		}
 	}
@@ -229,6 +223,8 @@ function monitorChanges(changes, namespace) {
 			log('Disabling Redirector, removing listener');
 			chrome.webRequest.onBeforeRequest.removeListener(checkRedirects);
 			chrome.webNavigation.onHistoryStateUpdated.removeListener(checkHistoryStateRedirects);
+			// Clear declarativeNetRequest rules when disabled
+			updateDeclarativeRules([]);
 		} else {
 			log('Enabling Redirector, setting up listener');
 			setUpRedirectListener();
@@ -299,20 +295,28 @@ function setUpRedirectListener() {
 	chrome.webRequest.onBeforeRequest.removeListener(checkRedirects); //Unsubscribe first, in case there are changes...
 	chrome.webNavigation.onHistoryStateUpdated.removeListener(checkHistoryStateRedirects);
 
-	storageArea.get({redirects:[]}, function(obj) {
+	storageArea.get({redirects:[]}, async function(obj) {
 		var redirects = obj.redirects;
 		if (redirects.length == 0) {
 			log('No redirects defined, not setting up listener');
+			// Clear declarativeNetRequest rules
+			await updateDeclarativeRules([]);
 			return;
 		}
 
 		partitionedRedirects = createPartitionedRedirects(redirects);
 		var filter = createFilter(redirects);
 
-		// CODE ARCHAEOLOGY: MV3 Migration - Non-blocking webRequest
+		// CODE ARCHAEOLOGY: MV3 Migration - declarativeNetRequest for actual redirects
 		// Original (MV2): chrome.webRequest with ["blocking"], return {redirectUrl: ...}
-		// New (MV3): Non-blocking listener, use chrome.tabs.update() for redirect
+		// New (MV3): declarativeNetRequest does redirects, webRequest for logging/notifications
 		// Reason: MV3 removed blocking webRequest capability
+
+		// Update declarativeNetRequest dynamic rules (does the actual redirecting)
+		await updateDeclarativeRules(redirects);
+		log('declarativeNetRequest rules updated, count: ' + redirects.length);
+
+		// Set up webRequest listener for logging and notifications
 		log('Setting filter for listener: ' + JSON.stringify(filter));
 		chrome.webRequest.onBeforeRequest.addListener(checkRedirects, filter);
 

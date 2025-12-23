@@ -17,7 +17,9 @@
     "webNavigation",
     "storage",
     "tabs",
-    "notifications"
+    "notifications",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess"
   ],
   "host_permissions": [
     "http://*/*",
