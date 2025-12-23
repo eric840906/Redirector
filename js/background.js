@@ -16,9 +16,10 @@ function log(msg, force) {
 log.enabled = false;
 var enableNotifications=false;
 
-function isDarkMode() {
-	return window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
+// CODE ARCHAEOLOGY: MV3 Migration - Removed isDarkMode()
+// Reason: Service workers don't have access to window.matchMedia()
+// Original (MV2): function isDarkMode() { return window.matchMedia('(prefers-color-scheme: dark)').matches; }
+// New (MV3): Rely on manifest theme_icons for automatic dark/light mode switching
 var isFirefox = !!navigator.userAgent.match(/Firefox/i);
 
 var storageArea = chrome.storage.local;
@@ -333,11 +334,11 @@ function updateIcon() {
 
 		//Do this here so even in Chrome we get the icon not too long after an dark/light mode switch...
 		if (!isFirefox) {
-			if (isDarkMode()) {
-				setIcon('icon-dark-theme');
-			} else {
-				setIcon('icon-light-theme');
-			}
+			// CODE ARCHAEOLOGY: MV3 Migration - Default to light theme
+			// Reason: Service workers can't access window.matchMedia()
+			// Original (MV2): if (isDarkMode()) setIcon('icon-dark-theme') else setIcon('icon-light-theme')
+			// New (MV3): manifest theme_icons handles auto dark/light switching
+			setIcon('icon-light-theme');
 		}
 
 		if (obj.disabled) {
@@ -531,7 +532,11 @@ function sendNotifications(redirect, originalUrl, redirectedUrl ){
 	// So let's use useragent. 
 	// Opera UA has both chrome and OPR. So check against that ( Only chrome which supports list) - other browsers to get BASIC type notifications.
 
-	let icon = isDarkMode() ? "images/icon-dark-theme-48.png": "images/icon-light-theme-48.png";
+	// CODE ARCHAEOLOGY: MV3 Migration - Default to light theme icon
+	// Reason: Service workers can't access window.matchMedia()
+	// Original (MV2): let icon = isDarkMode() ? "images/icon-dark-theme-48.png": "images/icon-light-theme-48.png";
+	// New (MV3): Default to light theme (manifest theme_icons handles switching)
+	let icon = "images/icon-light-theme-48.png";
 
 	if(navigator.userAgent.toLowerCase().indexOf("chrome") > -1 && navigator.userAgent.toLowerCase().indexOf("opr")<0){
 		
@@ -566,7 +571,8 @@ function handleStartup(){
 
 	updateIcon(); //To set dark/light icon...
 
-	//This doesn't work yet in Chrome, but we'll put it here anyway, in case it starts working...
-	let darkModeMql = window.matchMedia('(prefers-color-scheme: dark)');
-	darkModeMql.onchange = updateIcon;
+	// CODE ARCHAEOLOGY: MV3 Migration - Removed dark mode listener
+	// Reason: Service workers can't access window.matchMedia()
+	// Original (MV2): darkModeMql = window.matchMedia('(prefers-color-scheme: dark)'); darkModeMql.onchange = updateIcon;
+	// New (MV3): Removed - manifest theme_icons handles automatic dark/light mode switching
 }
