@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Redirector",
   "description": "Automatically redirect content based on user-defined rules.",
-  "version": "4.0.0-beta.1",
+  "version": "4",
   "icons": {
     "16": "images/icon-light-theme-16.png",
     "19": "images/icon-light-theme-19.png",
@@ -12,7 +12,6 @@
     "64": "images/icon-light-theme-64.png",
     "128": "images/icon-light-theme-128.png"
   },
-
   "permissions": [
     "webRequest",
     "webNavigation",
@@ -34,8 +33,7 @@
     "type": "module"
   },
   "options_ui": {
-    "page": "popup.html",
-    "chrome_style": true
+    "page": "popup.html"
   },
   "action": {
     "default_icon": {
