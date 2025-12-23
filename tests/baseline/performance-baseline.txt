@@ -1,0 +1,241 @@
+# Performance Baseline: Redirector MV2 v3.5.4
+
+**Date**: 2025-12-22
+**Purpose**: Establish MV2 performance baseline for regression detection
+**Baseline Version**: MV2 v3.5.4
+**Test Environment**: To be filled during manual testing
+
+---
+
+## Test Environment
+
+**Browser**: Chrome [VERSION] / Firefox [VERSION] / Edge [VERSION]
+**OS**: macOS [VERSION] / Windows [VERSION] / Linux [DISTRO]
+**Hardware**:
+- CPU: [MODEL]
+- RAM: [SIZE]
+- SSD: [TYPE]
+
+---
+
+## Redirect Latency Baseline
+
+**Methodology**:
+1. Load extension with N redirect rules
+2. Navigate to test URL that triggers redirect
+3. Measure time from navigation start to redirect completion
+4. Repeat 100 times per configuration
+5. Calculate p50, p95, p99 percentiles
+
+### 0 Rules (Empty State)
+
+**Test**: Navigate to https://example.com (no redirect should occur)
+
+- **p50**: [X] ms
+- **p95**: [X] ms
+- **p99**: [X] ms
+- **Average**: [X] ms
+- **Notes**: Baseline overhead of extension with no rules
+
+### 10 Rules (Typical User)
+
+**Test Dataset**: baseline-10-rules.json
+**Test URL**: https://en.m.wikipedia.org/ (de-mobilizer pattern)
+
+- **p50**: [X] ms
+- **p95**: [X] ms
+- **p99**: [X] ms
+- **Average**: [X] ms
+- **Notes**: Realistic user configuration
+
+### 100 Rules (Power User / Load Test)
+
+**Test Dataset**: baseline-100-rules.json
+**Test URL**: https://en.m.wikipedia.org/ (de-mobilizer pattern - rule #1)
+
+- **p50**: [X] ms
+- **p95**: [X] ms
+- **p99**: [X] ms
+- **Average**: [X] ms
+- **Notes**: Stress test - worst case scenario
+
+---
+
+## Memory Usage Baseline
+
+**Methodology**:
+1. Load extension with N rules
+2. Wait 30 seconds for stabilization
+3. Open Chrome Task Manager
+4. Record memory usage for "Redirector" process
+5. Repeat 3 times, take average
+
+### 0 Rules
+
+- **Memory**: [X] MB
+- **Notes**: Base extension overhead
+
+### 10 Rules
+
+- **Memory**: [X] MB
+- **Rule data size**: ~[X] KB
+- **Notes**: Typical user configuration
+
+### 100 Rules
+
+- **Memory**: [X] MB
+- **Rule data size**: ~[X] KB
+- **Notes**: Heavy user / load test
+
+---
+
+## Pattern Evaluation Performance
+
+**Complex Regex Patterns**:
+
+### De-mobilizer Pattern
+**Pattern**: `^(https?://)([a-z0-9-]*\.)m(?:obile)?\.(.*)`
+**Test URL**: https://en.m.wikipedia.org/wiki/Test
+
+- **Evaluation time**: [X] ms
+- **Match result**: SUCCESS
+- **Redirect URL**: https://en.wikipedia.org/wiki/Test
+
+### AMP Redirect Pattern
+**Pattern**: `^(?:https?://)www.(?:google|bing).com/amp/(?:s/)?(.*)`
+**Test URL**: https://www.google.com/amp/www.example.com/page
+
+- **Evaluation time**: [X] ms
+- **Match result**: SUCCESS
+- **Redirect URL**: https://www.example.com/page
+
+### YouTube Shorts Pattern
+**Pattern**: `^(?:https?://)(?:www.)?youtube.com/shorts/([a-zA-Z0-9_-]+)(.*)`
+**Test URL**: https://www.youtube.com/shorts/dQw4w9WgXcQ
+
+- **Evaluation time**: [X] ms
+- **Match result**: SUCCESS
+- **Redirect URL**: https://www.youtube.com/watch?v=dQw4w9WgXcQ
+
+---
+
+## Advanced Options Performance
+
+### URL Decode Processing
+
+**Pattern**: `^https://tracker\.com/\?dest=(.*)`
+**Test URL**: https://tracker.com/?dest=https%3A%2F%2Fexample.com%2Fpage
+**Processing**: URL decode
+
+- **Evaluation time**: [X] ms
+- **Match result**: SUCCESS
+- **Decoded URL**: https://example.com/page
+
+### Base64 Decode Processing
+
+**Pattern**: [CUSTOM TEST PATTERN]
+**Test URL**: [TEST URL WITH BASE64]
+**Processing**: Base64 decode
+
+- **Evaluation time**: [X] ms
+- **Match result**: SUCCESS / FAIL
+- **Notes**: [OBSERVATIONS]
+
+---
+
+## Request Type Filtering Performance
+
+### Main Frame Redirect
+
+**Rule count**: 10
+**Request type**: main_frame
+
+- **Latency**: [X] ms
+- **Notes**: Standard page navigation redirect
+
+### Sub-frame (iframe) Redirect
+
+**Rule count**: 10
+**Request type**: sub_frame
+
+- **Latency**: [X] ms
+- **Notes**: Iframe redirect performance
+
+### History State Redirect
+
+**Rule count**: 1 (YouTube Shorts)
+**Request type**: history
+**Test**: Navigate within YouTube using history.pushState
+
+- **Latency**: [X] ms
+- **Notes**: SPA navigation redirect (no full page reload)
+
+---
+
+## Loop Detection Performance
+
+**Test**: Create circular redirect (A→B, B→A)
+**Expected**: Block after 3 redirects within 3 seconds
+
+- **First redirect**: [X] ms
+- **Second redirect**: [X] ms
+- **Third redirect**: [X] ms
+- **Block triggered**: YES / NO
+- **Total time to block**: [X] ms
+- **Notes**: Verify loop detection threshold works
+
+---
+
+## MV3 Success Criteria (from spec.md)
+
+**SC-002**: MV3 redirect latency must be ≤ MV2 baseline + 10ms (p95)
+
+- **MV2 baseline p95 (10 rules)**: [X] ms
+- **MV3 target p95**: ≤ [X + 10] ms
+- **MV3 actual p95**: [TO BE MEASURED IN PHASE N-1]
+- **PASS/FAIL**: [TBD]
+
+**SC-012**: MV3 memory usage must be ≤ MV2 baseline * 1.2 (20% increase max)
+
+- **MV2 baseline memory (100 rules)**: [X] MB
+- **MV3 target memory**: ≤ [X * 1.2] MB
+- **MV3 actual memory**: [TO BE MEASURED IN PHASE N-1]
+- **PASS/FAIL**: [TBD]
+
+**SC-014**: Extension handles 1000 open tabs without freezing or crashing
+
+- **MV2 baseline**: [PASS/FAIL] - [NOTES]
+- **MV3 target**: PASS (no regression)
+- **MV3 actual**: [TO BE TESTED IN PHASE N-1]
+- **PASS/FAIL**: [TBD]
+
+---
+
+## Instructions for Manual Baseline Testing
+
+1. **Install MV2 v3.5.4** in Chrome (developer mode)
+2. **Import test datasets** from tests/baseline/datasets/
+3. **Run latency tests**:
+   - Use Chrome DevTools Performance tab
+   - Record navigation to redirect-triggering URLs
+   - Measure time from navigationStart to redirect completion
+   - Repeat 100 times for statistical significance
+4. **Run memory tests**:
+   - Chrome → Task Manager
+   - Record "Redirector" process memory
+   - Wait 30 seconds between measurements
+5. **Record all measurements** in this file
+6. **Commit results** to baseline for future comparison
+
+---
+
+## Notes
+
+- **MV2 persistent background page**: Always running, rules cached in memory
+- **Expected MV3 difference**: Service worker may have cold start penalty (~50-100ms) on first redirect after 30s inactivity
+- **Acceptable MV3 overhead**: ≤10ms p95 latency increase, ≤20% memory increase
+- **Critical threshold**: If MV3 exceeds these limits, optimization required before release
+
+**Status**: ⏳ BASELINE MEASUREMENTS PENDING
+
+Fill in measurements during Phase 0 manual testing before proceeding to Phase 2 (MV3 implementation).

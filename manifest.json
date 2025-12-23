@@ -1,8 +1,8 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "Redirector",
   "description": "Automatically redirect content based on user-defined rules.",
-  "version": "3.5.4",
+  "version": "4.0.0-beta.1",
   "icons": {
     "16": "images/icon-light-theme-16.png",
     "19": "images/icon-light-theme-19.png",
@@ -15,13 +15,14 @@
 
   "permissions": [
     "webRequest",
-    "webRequestBlocking",
     "webNavigation",
     "storage",
     "tabs",
-    "http://*/*",
-    "https://*/*",
     "notifications"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
   ],
   "applications": {
     "gecko": {
@@ -29,17 +30,14 @@
     }
   },
   "background": {
-    "scripts": [
-      "js/redirect.js",
-      "js/background.js"
-    ],
-    "persistent": true
+    "service_worker": "js/background.js",
+    "type": "module"
   },
   "options_ui": {
     "page": "popup.html",
     "chrome_style": true
   },
-  "browser_action": {
+  "action": {
     "default_icon": {
       "16": "images/icon-light-theme-16.png",
       "19": "images/icon-light-theme-19.png",
@@ -88,5 +86,6 @@
         "size": 128
       }
     ]
-  }
+  },
+  "minimum_chrome_version": "88"
 }
