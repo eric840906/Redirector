@@ -30,6 +30,14 @@ function convertToDeclarativeRule(redirectorRule, ruleId) {
 	}
 
 	try {
+		const resourceTypes = convertResourceTypes(redirectorRule.appliesTo);
+
+		// Skip if no valid resource types
+		if (!resourceTypes || resourceTypes.length === 0) {
+			console.warn('Rule has no valid resource types, skipping:', redirectorRule);
+			return null;
+		}
+
 		const rule = {
 			id: ruleId,
 			priority: 1,
@@ -37,19 +45,21 @@ function convertToDeclarativeRule(redirectorRule, ruleId) {
 				type: 'redirect'
 			},
 			condition: {
-				resourceTypes: convertResourceTypes(redirectorRule.appliesTo)
+				resourceTypes: resourceTypes
 			}
 		};
 
 		// Convert pattern based on type
+		let regexPattern;
 		if (redirectorRule.patternType === 'W' || redirectorRule.patternType === 'wildcard') {
 			// Wildcard pattern - convert to regex
-			const regexPattern = wildcardToRegex(redirectorRule.includePattern);
-			rule.condition.regexFilter = regexPattern;
+			regexPattern = wildcardToRegex(redirectorRule.includePattern);
 		} else {
 			// Regex pattern
-			rule.condition.regexFilter = redirectorRule.includePattern;
+			regexPattern = redirectorRule.includePattern;
 		}
+
+		rule.condition.regexFilter = regexPattern;
 
 		// Add exclude pattern if present
 		if (redirectorRule.excludePattern && redirectorRule.excludePattern.trim() !== '') {
@@ -60,17 +70,43 @@ function convertToDeclarativeRule(redirectorRule, ruleId) {
 		}
 
 		// Convert redirect URL
-		// declarativeNetRequest supports regex substitution with \1, \2 instead of $1, $2
-		const redirectUrl = redirectorRule.redirectUrl.replace(/\$(\d+)/g, '\\$1');
+		// Check if redirect uses capture groups ($1, $2, etc.)
+		const captureGroupMatches = redirectorRule.redirectUrl.match(/\$(\d+)/g);
+		const hasCaptureGroups = captureGroupMatches && captureGroupMatches.length > 0;
 
-		// Check if redirect is a transform (uses capture groups) or static URL
-		if (redirectUrl.includes('\\')) {
-			// Regex substitution redirect
+		if (hasCaptureGroups) {
+			// Count capture groups in the regex pattern
+			let patternCaptureGroups = (regexPattern.match(/\((?!\?)/g) || []).length;
+			const maxCaptureGroupUsed = Math.max(...captureGroupMatches.map(m => parseInt(m.substring(1))));
+
+			// Auto-fix: if pattern needs more capture groups, wrap wildcards in groups
+			if (maxCaptureGroupUsed > patternCaptureGroups) {
+				console.log(`Auto-fixing pattern for rule "${redirectorRule.description}": adding capture groups`);
+				console.log('Original pattern:', regexPattern);
+
+				// Try to auto-fix by wrapping .* and .+ in capture groups
+				let fixedPattern = regexPattern;
+				let groupsNeeded = maxCaptureGroupUsed - patternCaptureGroups;
+
+				// Wrap bare .* and .+ (not already in groups) with ()
+				// This is a best-effort fix - may not work for all cases
+				for (let i = 0; i < groupsNeeded; i++) {
+					// Replace first occurrence of .* or .+ that's not in a group
+					fixedPattern = fixedPattern.replace(/(\.\*|\.\+)(?![^\(]*\))/, '($1)');
+				}
+
+				regexPattern = fixedPattern;
+				rule.condition.regexFilter = fixedPattern;
+				console.log('Fixed pattern:', fixedPattern);
+			}
+
+			// Regex substitution redirect - convert $1, $2 to \1, \2
+			const regexSubstitution = redirectorRule.redirectUrl.replace(/\$(\d+)/g, '\\$1');
 			rule.action.redirect = {
-				regexSubstitution: redirectUrl
+				regexSubstitution: regexSubstitution
 			};
 		} else {
-			// Static URL redirect
+			// Static URL redirect (no capture groups)
 			rule.action.redirect = {
 				url: redirectorRule.redirectUrl
 			};
@@ -85,16 +121,16 @@ function convertToDeclarativeRule(redirectorRule, ruleId) {
 }
 
 /**
- * Convert wildcard pattern to regex
+ * Convert wildcard pattern to regex with capture groups
  * @param {string} wildcardPattern - Wildcard pattern with * and ?
- * @returns {string} Regex pattern
+ * @returns {string} Regex pattern with capture groups for *
  */
 function wildcardToRegex(wildcardPattern) {
 	// Escape special regex characters except * and ?
 	let regex = wildcardPattern
 		.replace(/[.+^${}()|[\]\\]/g, '\\$&')
-		.replace(/\*/g, '.*')
-		.replace(/\?/g, '.');
+		.replace(/\*/g, '(.*)')  // Wildcard * becomes capture group (.*)
+		.replace(/\?/g, '.');    // Wildcard ? becomes single char .
 
 	return '^' + regex + '$';
 }
@@ -110,27 +146,31 @@ function convertResourceTypes(appliesTo) {
 		return ['main_frame'];
 	}
 
-	const typeMap = {
-		'main_frame': 'main_frame',
-		'sub_frame': 'sub_frame',
-		'stylesheet': 'stylesheet',
-		'script': 'script',
-		'image': 'image',
-		'font': 'font',
-		'object': 'object',
-		'xmlhttprequest': 'xmlhttprequest',
-		'ping': 'ping',
-		'csp_report': 'csp_report',
-		'media': 'media',
-		'websocket': 'websocket',
-		'webtransport': 'webtransport',
-		'webbundle': 'webbundle',
-		'other': 'other'
-	};
+	// Valid declarativeNetRequest resource types (from Chrome API)
+	const validTypes = new Set([
+		'main_frame',
+		'sub_frame',
+		'stylesheet',
+		'script',
+		'image',
+		'font',
+		'object',
+		'xmlhttprequest',
+		'ping',
+		'csp_report',
+		'media',
+		'websocket',
+		'webtransport',
+		'webbundle',
+		'other'
+	]);
 
-	return appliesTo
-		.map(type => typeMap[type.toLowerCase()] || type)
-		.filter(type => type !== 'history'); // 'history' is handled separately with webNavigation
+	const converted = appliesTo
+		.map(type => type.toLowerCase())
+		.filter(type => validTypes.has(type)); // Only keep valid types
+
+	// If all types were filtered out (e.g., only 'history'), default to main_frame
+	return converted.length > 0 ? converted : ['main_frame'];
 }
 
 /**
@@ -178,18 +218,25 @@ async function updateDeclarativeRules(redirectorRules) {
 	const declarativeRules = convertAllRules(redirectorRules);
 
 	console.log('Updating declarativeNetRequest rules:', declarativeRules.length, 'rules');
+	console.log('Declarative rules:', JSON.stringify(declarativeRules, null, 2));
 
 	// Get current dynamic rules
 	const currentRules = await chrome.declarativeNetRequest.getDynamicRules();
 	const currentRuleIds = currentRules.map(rule => rule.id);
 
-	// Update rules: remove all old rules, add new ones
-	await chrome.declarativeNetRequest.updateDynamicRules({
-		removeRuleIds: currentRuleIds,
-		addRules: declarativeRules
-	});
+	try {
+		// Update rules: remove all old rules, add new ones
+		await chrome.declarativeNetRequest.updateDynamicRules({
+			removeRuleIds: currentRuleIds,
+			addRules: declarativeRules
+		});
 
-	console.log('declarativeNetRequest rules updated successfully');
+		console.log('declarativeNetRequest rules updated successfully');
+	} catch (error) {
+		console.error('Failed to update declarativeNetRequest rules:', error);
+		console.error('Failed rules:', JSON.stringify(declarativeRules, null, 2));
+		throw error;
+	}
 }
 
 // Export functions (if using modules)
