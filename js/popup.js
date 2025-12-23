@@ -20,7 +20,10 @@ function toggle(prop) {
 function openRedirectorSettings() {
 
 	//switch to open one if we have it to minimize conflicts
-	var url = chrome.extension.getURL('redirector.html');
+	// CODE ARCHAEOLOGY: MV3 Migration - API Rename
+	// Original (MV2): chrome.extension.getURL()
+	// New (MV3): chrome.runtime.getURL()
+	var url = chrome.runtime.getURL('redirector.html');
 	
 	//FIREFOXBUG: Firefox chokes on url:url filter if the url is a moz-extension:// url
 	//so we don't use that, do it the more manual way instead.
