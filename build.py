@@ -3,14 +3,48 @@
 import os, os.path, re, zipfile, json, shutil
 
 def get_files_to_zip(browser):
-	"""Get list of files to include in the build, excluding browser-specific files"""
-	# Exclude git stuff, build scripts, etc.
+	"""Get list of files to include in the build, excluding browser-specific files
+
+	Extension packages SHOULD include:
+	- manifest.json (or manifest-firefox.json for Firefox)
+	- js/ folder (with browser-specific exclusions)
+	- css/ folder
+	- images/ folder
+	- popup.html
+	- redirector.html
+	- help.html
+	- privacy.md
+	"""
+	# Exclude development files, docs, and non-essential files
 	exclude = [
-		r'\.(py|sh|pem)$', #file endings
-		r'(\|/)\.', #hidden files
-		r'package\.json|icon\.html', #file names
-		r'(\|/)(promo|unittest|build|specs|tests)(\|/)', #folders
-		r'BUILD\.md|DECISIONS\.md|CHANGELOG\.md', #documentation (not needed in extension)
+		# Build scripts and tools
+		r'\.(py|sh|pem|bak)$', #file endings
+		r'build\.py$',
+		r'nex-build\.sh$',
+
+		# Hidden files and folders (git, claude, etc.)
+		r'(\\|/)\.', #.git, .github, .claude, .gitignore, .specify, etc.
+
+		# Development files
+		r'package\.json$',
+		r'package-lock\.json$',
+		r'icon\.html$',
+
+		# Documentation (not needed in extension packages)
+		r'README\.md$',
+		r'BUILD\.md$',
+		r'DECISIONS\.md$',
+		r'CHANGELOG\.md$',
+		r'CLAUDE\.md$',
+		r'CONTRIBUTING\.md$',
+		r'LICENSE$',
+		r'LICENSE\.md$',
+
+		# Development directories
+		r'(\\|/)(promo|unittest|build|specs|tests|node_modules)(\\|/)',
+
+		# Alternate manifests (handled separately)
+		r'manifest-firefox\.json$', # Will be included only for Firefox build
 	]
 
 	# MV3-specific exclusions for Firefox (which uses MV2)
