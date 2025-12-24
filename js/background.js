@@ -520,11 +520,16 @@ function setupInitial() {
 
 	chrome.storage.local.get({
 		disabled: false
-	}, function (obj) {
+	}, async function (obj) {
 		if (!obj.disabled) {
 			setUpRedirectListener();
 		} else {
 			log('Redirector is disabled');
+			// CODE ARCHAEOLOGY: MV3 Migration - Clear declarativeNetRequest rules when disabled
+			// Reason: declarativeNetRequest rules persist even when service worker restarts
+			// Original (MV2): No action needed (webRequest listener not registered)
+			// New (MV3): Must explicitly clear dynamic rules to prevent redirects
+			await updateDeclarativeRules([]);
 		}
 	});
 }
