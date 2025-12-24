@@ -87,7 +87,7 @@ description: "Implementation tasks for Manifest V3 Migration"
 - [X] T107 [US1] Replace chrome.webRequest blocking API with non-blocking version in js/background.js:75-100 (change listener parameters from ['blocking'] to [])
 - [X] T108 [US1] Replace redirect response with chrome.tabs.update() in js/background.js:90-95 (change return {redirectUrl: ...} to chrome.tabs.update(details.tabId, {url: ...}))
 - [X] T109 [US1] Update ensureRedirectsLoaded() in js/background.js to handle empty state (0 rules) without errors
-- [ ] T110 [US1] Add performance optimization: cache compiled RegExp objects in memory within service worker in js/background.js
+- [X] T110 [US1] Add performance optimization: cache compiled RegExp objects in memory within service worker in js/background.js
 - [ ] T111 [US1] Test migration with baseline-empty.json (0 rules), verify extension initializes correctly
 - [ ] T112 [US1] Test migration with baseline-10-rules.json (10 rules), verify all rules preserved and functional
 - [ ] T113 [US1] Test migration with baseline-100-rules.json (100+ rules), verify performance within 10ms of MV2 baseline
@@ -107,10 +107,10 @@ description: "Implementation tasks for Manifest V3 Migration"
 
 ### Implementation for User Story 3
 
-- [ ] T200 [US3] Update chrome.browserAction to chrome.action in js/popup.js:10-25 (API rename)
-- [ ] T201 [US3] Verify js/redirect.js pattern matching logic unchanged (NO CHANGES - code archaeology check)
-- [ ] T202 [US3] Verify js/redirect.js capture group substitution unchanged (NO CHANGES - code archaeology check)
-- [ ] T203 [US3] Verify js/redirect.js URL processing (decode/encode/base64) unchanged (NO CHANGES - code archaeology check)
+- [X] T200 [US3] Update chrome.browserAction to chrome.action in js/popup.js:10-25 (API rename)
+- [X] T201 [US3] Verify js/redirect.js pattern matching logic unchanged (NO CHANGES - code archaeology check)
+- [X] T202 [US3] Verify js/redirect.js capture group substitution unchanged (NO CHANGES - code archaeology check)
+- [X] T203 [US3] Verify js/redirect.js URL processing (decode/encode/base64) unchanged (NO CHANGES - code archaeology check)
 - [ ] T204 [US3] Test regex redirect: `^(https?://)([a-z0-9-]*\.)m\.(.*)` → `$1$2$3` (de-mobilizer) with https://en.m.wikipedia.org/
 - [ ] T205 [US3] Test wildcard redirect: `https://ad.doubleclick.net/*?http*://*` → `$2://$3` (doubleclick escaper)
 - [ ] T206 [US3] Test URL decode processing: redirect with encoded characters, verify decoded capture groups
@@ -125,7 +125,7 @@ description: "Implementation tasks for Manifest V3 Migration"
 - [ ] T215 [US3] Test extension disable toggle: disable extension, verify no redirects occur
 - [ ] T216 [US3] Test notifications: enable notifications, trigger redirect, verify notification shows rule and URLs
 - [ ] T217 [US3] Test console logging: enable logging, trigger redirect, verify console output
-- [ ] T218 [US3] Update dark/light mode icon logic (Chrome/Edge only) to work in MV3 service worker in js/background.js (if needed)
+- [X] T218 [US3] Update dark/light mode icon logic (Chrome/Edge only) to work in MV3 service worker in js/background.js (if needed)
 - [ ] T219 [US3] Test all README examples: de-mobilizer, AMP redirect, doubleclick escaper, YouTube Shorts, DDG bangs
 
 **Checkpoint**: At this point, User Stories 1 AND 3 should both work independently
@@ -140,8 +140,8 @@ description: "Implementation tasks for Manifest V3 Migration"
 
 ### Implementation for User Story 2
 
-- [ ] T300 [P] [US2] Create separate MV2 manifest for Firefox in manifest-firefox.json (copy from current manifest.json)
-- [ ] T301 [P] [US2] Document build process for dual manifests in BUILD.md (Firefox uses manifest-firefox.json, Chrome/Edge use manifest.json)
+- [X] T300 [P] [US2] Create separate MV2 manifest for Firefox in manifest-firefox.json (copy from current manifest.json)
+- [X] T301 [P] [US2] Document build process for dual manifests in BUILD.md (Firefox uses manifest-firefox.json, Chrome/Edge use manifest.json)
 - [ ] T302 [US2] Verify chrome.storage API works identically in Chrome MV3 and Firefox MV2 (test in both browsers)
 - [ ] T303 [US2] Test export from Chrome MV3 → import into Firefox MV2 with baseline-10-rules.json
 - [ ] T304 [US2] Test export from Firefox MV2 → import into Chrome MV3 with baseline-10-rules.json
@@ -211,9 +211,9 @@ description: "Implementation tasks for Manifest V3 Migration"
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T600 [P] Update CHANGELOG.md with all MV3 changes and rationale (manifest changes, API migrations, service worker)
-- [ ] T601 [P] Create DECISIONS.md log for significant technical decisions (why not declarativeNetRequest, why hybrid approach, etc.)
-- [ ] T602 [P] Update README.md with MV3 migration notes, Chrome 88+ requirement, Firefox MV2 support
+- [X] T600 [P] Update CHANGELOG.md with all MV3 changes and rationale (manifest changes, API migrations, service worker)
+- [X] T601 [P] Create DECISIONS.md log for significant technical decisions (why not declarativeNetRequest, why hybrid approach, etc.)
+- [X] T602 [P] Update README.md with MV3 migration notes, Chrome 88+ requirement, Firefox MV2 support
 - [ ] T603 Code archaeology documentation: verify all CODE ARCHAEOLOGY comments added to changed files per Constitution
 - [ ] T604 Security audit: review for XSS vulnerabilities in redirect URL handling in js/redirect.js
 - [ ] T605 Security audit: review for injection vulnerabilities in pattern evaluation in js/redirect.js
