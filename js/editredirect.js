@@ -24,6 +24,17 @@ function cancelEdit() {
 }
 
 function saveRedirect() {
+	// Auto-trim all string fields to prevent issues with accidental leading/trailing spaces
+	// Critical: includePattern, excludePattern, redirectUrl (pattern matching fails with spaces)
+	// Important: exampleUrl (for accurate testing)
+	// Nice to have: description, patternDesc (cosmetic)
+	const fieldsToTrim = ['description', 'exampleUrl', 'includePattern', 'excludePattern', 'patternDesc', 'redirectUrl'];
+	fieldsToTrim.forEach(field => {
+		if (typeof activeRedirect[field] === 'string') {
+			activeRedirect[field] = activeRedirect[field].trim();
+		}
+	});
+
 	let savedRedirect = new Redirect(activeRedirect);
 	if (activeRedirect.existing) {
 		REDIRECTS[activeRedirect.index] = savedRedirect; //To strip out any extra crap we've added
