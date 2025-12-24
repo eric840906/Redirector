@@ -1,0 +1,133 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 4.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release (beta)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Verify version in manifest
+        run: |
+          MANIFEST_VERSION=$(python3 -c "import json; print(json.load(open('manifest.json'))['version'])")
+          echo "Manifest version: $MANIFEST_VERSION"
+          echo "Release version: ${{ inputs.version }}"
+          if [ "$MANIFEST_VERSION" != "${{ inputs.version }}" ]; then
+            echo "Warning: Manifest version ($MANIFEST_VERSION) doesn't match release version (${{ inputs.version }})"
+            echo "Please update manifest.json and manifest-firefox.json before creating release"
+            exit 1
+          fi
+
+      - name: Build extension packages
+        run: |
+          python3 build.py
+          ls -lh build/
+
+      - name: Determine release type
+        id: release-type
+        run: |
+          if [ "${{ inputs.prerelease }}" == "true" ]; then
+            echo "tag=v${{ inputs.version }}-beta" >> $GITHUB_OUTPUT
+            echo "name=Redirector ${{ inputs.version }} Beta (MV3)" >> $GITHUB_OUTPUT
+          else
+            echo "tag=v${{ inputs.version }}" >> $GITHUB_OUTPUT
+            echo "name=Redirector ${{ inputs.version }} (MV3)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create release notes
+        id: release-notes
+        run: |
+          cat > release-notes.md << 'EOF'
+          ## Redirector ${{ inputs.version }}
+
+          ### Download
+
+          - **Chrome/Edge**: Download `redirector-chrome.zip`
+          - **Opera**: Download `redirector-opera.zip`
+          - **Firefox**: Download `redirector-firefox.xpi`
+
+          ### Installation
+
+          #### Chrome/Edge
+          1. Download `redirector-chrome.zip`
+          2. Open `chrome://extensions/` (or `edge://extensions/`)
+          3. Enable "Developer mode"
+          4. Click "Load unpacked"
+          5. Select the extracted folder
+
+          #### Firefox
+          1. Download `redirector-firefox.xpi`
+          2. Open `about:addons`
+          3. Click gear icon → "Install Add-on From File"
+          4. Select the downloaded `.xpi` file
+
+          ### Changes
+
+          - Manifest V3 support for Chrome/Edge/Opera
+          - Manifest V2 maintained for Firefox
+          - All redirect patterns work identically
+          - Automatic data migration from v3.5.x
+          - Zero data loss guarantee with automatic backup
+
+          For detailed changes, see [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/master/CHANGELOG.md)
+
+          ### Technical Details
+
+          - **Chrome/Edge/Opera**: Manifest V3 (Chrome 88+)
+          - **Firefox**: Manifest V2 (Firefox 109+)
+          - **Performance**: ≤10ms latency vs v3.5.x
+          - **Memory**: ≤20% increase vs v3.5.x
+
+          ### Support
+
+          - Report issues: https://github.com/${{ github.repository }}/issues
+          - Documentation: [BUILD.md](https://github.com/${{ github.repository }}/blob/master/BUILD.md)
+          EOF
+
+          echo "notes_file=release-notes.md" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.release-type.outputs.tag }}
+          name: ${{ steps.release-type.outputs.name }}
+          body_path: release-notes.md
+          draft: false
+          prerelease: ${{ inputs.prerelease }}
+          files: |
+            build/redirector-chrome.zip
+            build/redirector-edge.zip
+            build/redirector-opera.zip
+            build/redirector-firefox.xpi
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: redirector-${{ inputs.version }}
+          path: build/
+          retention-days: 90
