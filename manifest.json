@@ -1,8 +1,8 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "Redirector",
   "description": "Automatically redirect content based on user-defined rules.",
-  "version": "3.5.4",
+  "version": "4",
   "icons": {
     "16": "images/icon-light-theme-16.png",
     "19": "images/icon-light-theme-19.png",
@@ -12,34 +12,31 @@
     "64": "images/icon-light-theme-64.png",
     "128": "images/icon-light-theme-128.png"
   },
-
   "permissions": [
     "webRequest",
-    "webRequestBlocking",
     "webNavigation",
     "storage",
     "tabs",
-    "http://*/*",
-    "https://*/*",
-    "notifications"
+    "notifications",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess"
   ],
-  "applications": {
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "browser_specific_settings": {
     "gecko": {
       "id": "redirector@einaregilsson.com"
     }
   },
   "background": {
-    "scripts": [
-      "js/redirect.js",
-      "js/background.js"
-    ],
-    "persistent": true
+    "service_worker": "js/background.js"
   },
   "options_ui": {
-    "page": "popup.html",
-    "chrome_style": true
+    "page": "popup.html"
   },
-  "browser_action": {
+  "action": {
     "default_icon": {
       "16": "images/icon-light-theme-16.png",
       "19": "images/icon-light-theme-19.png",
@@ -88,5 +85,6 @@
         "size": 128
       }
     ]
-  }
+  },
+  "minimum_chrome_version": "88"
 }

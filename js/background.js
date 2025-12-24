@@ -1,3 +1,10 @@
+// CODE ARCHAEOLOGY: MV3 Migration - Service Worker
+// Reason: MV3 requires service workers instead of persistent background pages
+// Original (MV2): Persistent background page with scripts array in manifest
+// New (MV3): Single service worker file, must import dependencies
+
+// Import redirect.js for Redirect class
+importScripts('redirect.js', 'migration.js', 'declarative-rules.js');
 
 //This is the background script. It is responsible for actually redirecting requests,
 //as well as monitoring changes in the redirects and the disabled status and reacting to them.
@@ -9,9 +16,10 @@ function log(msg, force) {
 log.enabled = false;
 var enableNotifications=false;
 
-function isDarkMode() {
-	return window.matchMedia('(prefers-color-scheme: dark)').matches;
-}
+// CODE ARCHAEOLOGY: MV3 Migration - Removed isDarkMode()
+// Reason: Service workers don't have access to window.matchMedia()
+// Original (MV2): function isDarkMode() { return window.matchMedia('(prefers-color-scheme: dark)').matches; }
+// New (MV3): Rely on manifest theme_icons for automatic dark/light mode switching
 var isFirefox = !!navigator.userAgent.match(/Firefox/i);
 
 var storageArea = chrome.storage.local;
@@ -32,6 +40,81 @@ var justRedirected = {
 };
 var redirectThreshold = 3;
 
+// CODE ARCHAEOLOGY: MV3 Migration - Service Worker Lifecycle
+// Reason: Service workers shut down after inactivity, must reload data on wake
+// Original (MV2): Persistent background page, data always in memory
+// New (MV3): Load from storage on each wake-up
+
+/**
+ * Ensure redirects are loaded from storage (service worker wake-up)
+ * Called before checking redirects to handle service worker lifecycle
+ */
+async function ensureRedirectsLoaded() {
+	// If already loaded (warm start), skip
+	if (Object.keys(partitionedRedirects).length > 0) {
+		return;
+	}
+
+	// Cold start - load from storage
+	log('Service worker cold start, loading redirects from storage...');
+
+	return new Promise((resolve) => {
+		chrome.storage.local.get({
+			redirects: [],
+			disabled: false,
+			logging: false,
+			enableNotifications: false
+		}, (obj) => {
+			if (chrome.runtime.lastError) {
+				console.error('Error loading redirects:', chrome.runtime.lastError);
+				resolve();
+				return;
+			}
+
+			log.enabled = obj.logging;
+			enableNotifications = obj.enableNotifications;
+
+			if (!obj.disabled && obj.redirects && obj.redirects.length > 0) {
+				partitionedRedirects = createPartitionedRedirects(obj.redirects);
+				log('Loaded ' + obj.redirects.length + ' redirects from storage');
+			}
+
+			resolve();
+		});
+	});
+}
+
+// CODE ARCHAEOLOGY: MV3 Migration - Automatic Migration
+// Reason: Detect MV2→MV3 upgrade and run migration automatically
+// Original (MV2): No migration needed
+// New (MV3): Check on install/update, create backup, preserve data
+
+/**
+ * Handle extension installation/update
+ * Runs migration on first MV3 launch
+ */
+chrome.runtime.onInstalled.addListener(async (details) => {
+	log('Extension installed/updated: ' + details.reason);
+
+	if (details.reason === 'update') {
+		// Check if migration needed
+		try {
+			const migrationDone = await checkMigrationDone();
+			if (!migrationDone) {
+				log('Running MV2→MV3 migration...');
+				const result = await runMigration();
+				log('Migration completed:', JSON.stringify(result));
+			}
+		} catch (error) {
+			console.error('Migration failed:', error);
+			// Don't block extension - it will still work with existing data
+		}
+	}
+
+	// Initialize
+	updateIcon();
+});
+
 function setIcon(image) {
 	var data = { 
 		path: {}
@@ -41,7 +124,10 @@ function setIcon(image) {
 		data.path[nr] = `images/${image}-${nr}.png`;
 	}
 
-	chrome.browserAction.setIcon(data, function() {
+	// CODE ARCHAEOLOGY: MV3 Migration - API Rename
+	// Original (MV2): chrome.browserAction
+	// New (MV3): chrome.action
+	chrome.action.setIcon(data, function() {
 		var err = chrome.runtime.lastError;
 		if (err) {
 			//If not checked we will get unchecked errors in the background page console...
@@ -52,26 +138,31 @@ function setIcon(image) {
 
 //This is the actual function that gets called for each request and must
 //decide whether or not we want to redirect.
-function checkRedirects(details) {
+// CODE ARCHAEOLOGY: MV3 Migration - Async Redirect with tabs.update
+// Original (MV2): Synchronous, returns {redirectUrl: ...}
+// New (MV3): Async, uses chrome.tabs.update() for redirect
+async function checkRedirects(details) {
+	// Ensure redirects loaded (service worker wake-up)
+	await ensureRedirectsLoaded();
 
 	//We only allow GET request to be redirected, don't want to accidentally redirect
 	//sensitive POST parameters
 	if (details.method != 'GET') {
-		return {};
+		return;
 	}
 	log('Checking: ' + details.type + ': ' + details.url);
 
 	var list = partitionedRedirects[details.type];
 	if (!list) {
 		log('No list for type: ' + details.type);
-		return {};
+		return;
 	}
 
 	var timestamp = ignoreNextRequest[details.url];
 	if (timestamp) {
 		log('Ignoring ' + details.url + ', was just redirected ' + (new Date().getTime()-timestamp) + 'ms ago');
 		delete ignoreNextRequest[details.url];
-		return {};
+		return;
 	}
 
 	
@@ -93,22 +184,32 @@ function checkRedirects(details) {
 				justRedirected[details.url] = data;
 				if (data.count >= redirectThreshold) {
 					log('Ignoring ' + details.url + ' because we have redirected it ' + data.count + ' times in the last ' + threshold + 'ms');
-					return {};
+					return;
 				} 
 			}
 
 
 			log('Redirecting ' + details.url + ' ===> ' + result.redirectTo + ', type: ' + details.type + ', pattern: ' + r.includePattern + ' which is in Rule : ' + r.description);
+
+			// CODE ARCHAEOLOGY: MV3 Migration - declarativeNetRequest handles actual redirect
+			// Original (MV2): return { redirectUrl: result.redirectTo } - webRequest did the redirect
+			// New (MV3): declarativeNetRequest does the redirect, webRequest only logs/notifies
+			// Reason: MV3 removed blocking webRequest, requires declarativeNetRequest API
+			// This listener is now non-blocking and used only for logging and notifications
+
 			if(enableNotifications){
 				sendNotifications(r, details.url, result.redirectTo);
 			}
 			ignoreNextRequest[result.redirectTo] = new Date().getTime();
-			
-			return { redirectUrl: result.redirectTo };
+
+			// Redirect is handled by declarativeNetRequest dynamic rules
+			// This listener is just for logging and notifications
+			return;
 		}
 	}
 
-  	return {}; 
+	// No redirect matched
+	return;
 }
 
 //Monitor changes in data, and setup everything again.
@@ -122,6 +223,8 @@ function monitorChanges(changes, namespace) {
 			log('Disabling Redirector, removing listener');
 			chrome.webRequest.onBeforeRequest.removeListener(checkRedirects);
 			chrome.webNavigation.onHistoryStateUpdated.removeListener(checkHistoryStateRedirects);
+			// Clear declarativeNetRequest rules when disabled
+			updateDeclarativeRules([]);
 		} else {
 			log('Enabling Redirector, setting up listener');
 			setUpRedirectListener();
@@ -192,18 +295,30 @@ function setUpRedirectListener() {
 	chrome.webRequest.onBeforeRequest.removeListener(checkRedirects); //Unsubscribe first, in case there are changes...
 	chrome.webNavigation.onHistoryStateUpdated.removeListener(checkHistoryStateRedirects);
 
-	storageArea.get({redirects:[]}, function(obj) {
+	storageArea.get({redirects:[]}, async function(obj) {
 		var redirects = obj.redirects;
 		if (redirects.length == 0) {
 			log('No redirects defined, not setting up listener');
+			// Clear declarativeNetRequest rules
+			await updateDeclarativeRules([]);
 			return;
 		}
 
 		partitionedRedirects = createPartitionedRedirects(redirects);
 		var filter = createFilter(redirects);
 
+		// CODE ARCHAEOLOGY: MV3 Migration - declarativeNetRequest for actual redirects
+		// Original (MV2): chrome.webRequest with ["blocking"], return {redirectUrl: ...}
+		// New (MV3): declarativeNetRequest does redirects, webRequest for logging/notifications
+		// Reason: MV3 removed blocking webRequest capability
+
+		// Update declarativeNetRequest dynamic rules (does the actual redirecting)
+		await updateDeclarativeRules(redirects);
+		log('declarativeNetRequest rules updated, count: ' + redirects.length);
+
+		// Set up webRequest listener for logging and notifications
 		log('Setting filter for listener: ' + JSON.stringify(filter));
-		chrome.webRequest.onBeforeRequest.addListener(checkRedirects, filter, ["blocking"]);
+		chrome.webRequest.onBeforeRequest.addListener(checkRedirects, filter);
 
 		if (partitionedRedirects.history) {
 			log('Adding HistoryState Listener');
@@ -218,13 +333,13 @@ function setUpRedirectListener() {
 }
 
 //Redirect urls on places like Facebook and Twitter who don't do real reloads, only do ajax updates and push a new url to the address bar...
-function checkHistoryStateRedirects(ev) {
+// CODE ARCHAEOLOGY: MV3 Migration - Async History State Redirects
+// Original (MV2): checkRedirects returned {redirectUrl: ...}, manually called tabs.update
+// New (MV3): checkRedirects handles redirect internally, just await it
+async function checkHistoryStateRedirects(ev) {
 	ev.type = 'history';
 	ev.method = 'GET';
-	let result = checkRedirects(ev);
-	if (result.redirectUrl) {
-		chrome.tabs.update(ev.tabId, {url: result.redirectUrl});
-	}
+	await checkRedirects(ev);
 }
 
 //Sets on/off badge, and for Chrome updates dark/light mode icon
@@ -233,24 +348,24 @@ function updateIcon() {
 
 		//Do this here so even in Chrome we get the icon not too long after an dark/light mode switch...
 		if (!isFirefox) {
-			if (isDarkMode()) {
-				setIcon('icon-dark-theme');
-			} else {
-				setIcon('icon-light-theme');
-			}
+			// CODE ARCHAEOLOGY: MV3 Migration - Default to light theme
+			// Reason: Service workers can't access window.matchMedia()
+			// Original (MV2): if (isDarkMode()) setIcon('icon-dark-theme') else setIcon('icon-light-theme')
+			// New (MV3): manifest theme_icons handles auto dark/light switching
+			setIcon('icon-light-theme');
 		}
 
 		if (obj.disabled) {
-			chrome.browserAction.setBadgeText({text: 'off'});
-			chrome.browserAction.setBadgeBackgroundColor({color: '#fc5953'});
-			if (chrome.browserAction.setBadgeTextColor) { //Not supported in Chrome
-				chrome.browserAction.setBadgeTextColor({color: '#fafafa'});
+			chrome.action.setBadgeText({text: 'off'});
+			chrome.action.setBadgeBackgroundColor({color: '#fc5953'});
+			if (chrome.action.setBadgeTextColor) { //Not supported in Chrome
+				chrome.action.setBadgeTextColor({color: '#fafafa'});
 			}
 		} else {
-			chrome.browserAction.setBadgeText({text: 'on'});
-			chrome.browserAction.setBadgeBackgroundColor({color: '#35b44a'});
-			if (chrome.browserAction.setBadgeTextColor) { //Not supported in Chrome
-				chrome.browserAction.setBadgeTextColor({color: '#fafafa'});
+			chrome.action.setBadgeText({text: 'on'});
+			chrome.action.setBadgeBackgroundColor({color: '#35b44a'});
+			if (chrome.action.setBadgeTextColor) { //Not supported in Chrome
+				chrome.action.setBadgeTextColor({color: '#fafafa'});
 			}
 		}
 	});	
@@ -431,7 +546,11 @@ function sendNotifications(redirect, originalUrl, redirectedUrl ){
 	// So let's use useragent. 
 	// Opera UA has both chrome and OPR. So check against that ( Only chrome which supports list) - other browsers to get BASIC type notifications.
 
-	let icon = isDarkMode() ? "images/icon-dark-theme-48.png": "images/icon-light-theme-48.png";
+	// CODE ARCHAEOLOGY: MV3 Migration - Default to light theme icon
+	// Reason: Service workers can't access window.matchMedia()
+	// Original (MV2): let icon = isDarkMode() ? "images/icon-dark-theme-48.png": "images/icon-light-theme-48.png";
+	// New (MV3): Default to light theme (manifest theme_icons handles switching)
+	let icon = "images/icon-light-theme-48.png";
 
 	if(navigator.userAgent.toLowerCase().indexOf("chrome") > -1 && navigator.userAgent.toLowerCase().indexOf("opr")<0){
 		
@@ -466,7 +585,8 @@ function handleStartup(){
 
 	updateIcon(); //To set dark/light icon...
 
-	//This doesn't work yet in Chrome, but we'll put it here anyway, in case it starts working...
-	let darkModeMql = window.matchMedia('(prefers-color-scheme: dark)');
-	darkModeMql.onchange = updateIcon;
+	// CODE ARCHAEOLOGY: MV3 Migration - Removed dark mode listener
+	// Reason: Service workers can't access window.matchMedia()
+	// Original (MV2): darkModeMql = window.matchMedia('(prefers-color-scheme: dark)'); darkModeMql.onchange = updateIcon;
+	// New (MV3): Removed - manifest theme_icons handles automatic dark/light mode switching
 }

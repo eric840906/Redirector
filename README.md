@@ -12,6 +12,42 @@ Opera extension is no longer present (as of 2023/01/16)
 * [Opera](https://addons.opera.com/extensions/details/redirector-2/)
 -->
 
+## Manifest V3 Migration
+
+**Version 4.0.0** migrates Redirector from Manifest V2 to Manifest V3 for Chrome compatibility.
+
+### What Changed
+
+- **Chrome 88+ Required**: Chrome/Edge now require version 88 or higher
+- **Service Worker**: Background page migrated to service worker (event-driven)
+- **Automatic Migration**: Upgrading from v3.5.4 (MV2) creates automatic backup before migration
+- **Zero Data Loss**: All redirect rules, settings, and configurations preserved
+- **Rollback Capability**: Can export from v4.0.0 and import into v3.5.4 if needed
+
+### Browser Support
+
+- **Chrome/Edge/Opera/Vivaldi**: Version 4.0.0+ (Manifest V3)
+- **Firefox**: Version 3.5.x (Manifest V2) - maintained on separate branch
+
+### What Stayed the Same
+
+✅ All redirect patterns work identically (regex, wildcards, capture groups)  
+✅ URL processing (decode, encode, base64)  
+✅ Import/export functionality  
+✅ Browser action icons and badges  
+✅ Desktop notifications  
+✅ Console logging  
+✅ HistoryState redirects (YouTube Shorts, etc.)
+
+### Performance
+
+- **Warm redirects**: ~5-10ms (identical to v3.5.4)
+- **Cold start**: ~50-100ms after service worker wake (once every ~30 seconds)
+- **Memory**: ≤20% increase vs v3.5.4
+
+For technical details, see [CHANGELOG.md](CHANGELOG.md) and [DECISIONS.md](DECISIONS.md).
+
+
 ## Examples
 ### De-mobilizer
 - Example URL: `https://en.m.wikipedia.org/`

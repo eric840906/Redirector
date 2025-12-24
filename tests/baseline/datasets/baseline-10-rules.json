@@ -1,0 +1,177 @@
+{
+  "createdBy": "Redirector v3.5.4",
+  "createdAt": "2025-12-22T00:00:00.000Z",
+  "redirects": [
+    {
+      "description": "De-mobilizer - Always show desktop version",
+      "exampleUrl": "https://en.m.wikipedia.org/",
+      "exampleResult": "https://en.wikipedia.org/",
+      "error": null,
+      "includePattern": "^(https?://)([a-z0-9-]*\\.)m(?:obile)?\\.(.*)",
+      "excludePattern": "",
+      "patternDesc": "Remove 'm.' or 'mobile.' subdomain",
+      "redirectUrl": "$1$2$3",
+      "patternType": "R",
+      "processMatches": "noProcessing",
+      "disabled": false,
+      "grouped": false,
+      "appliesTo": [
+        "main_frame"
+      ]
+    },
+    {
+      "description": "AMP Redirect - Remove Google/Bing AMP proxy",
+      "exampleUrl": "https://www.google.com/amp/www.example.com/amp/document",
+      "exampleResult": "https://www.example.com/amp/document",
+      "error": null,
+      "includePattern": "^(?:https?://)www.(?:google|bing).com/amp/(?:s/)?(.*)",
+      "excludePattern": "",
+      "patternDesc": "Go directly to original site",
+      "redirectUrl": "https://$1",
+      "patternType": "R",
+      "processMatches": "noProcessing",
+      "disabled": false,
+      "grouped": false,
+      "appliesTo": [
+        "main_frame"
+      ]
+    },
+    {
+      "description": "Doubleclick Escaper - Remove tracking",
+      "exampleUrl": "https://ad.doubleclick.net/ddm/trackclk/N135005.2681608/B20244?https://www.example.com",
+      "exampleResult": "https://www.example.com",
+      "error": null,
+      "includePattern": "^(?:https?://)ad.doubleclick.net/.*\\?(http?s://.*)",
+      "excludePattern": "",
+      "patternDesc": "Extract destination URL",
+      "redirectUrl": "$1",
+      "patternType": "R",
+      "processMatches": "noProcessing",
+      "disabled": false,
+      "grouped": false,
+      "appliesTo": [
+        "main_frame"
+      ]
+    },
+    {
+      "description": "YouTube Shorts to Watch",
+      "exampleUrl": "https://www.youtube.com/shorts/dQw4w9WgXcQ",
+      "exampleResult": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "error": null,
+      "includePattern": "^(?:https?://)(?:www.)?youtube.com/shorts/([a-zA-Z0-9_-]+)(.*)",
+      "excludePattern": "",
+      "patternDesc": "Convert Shorts to regular watch URLs",
+      "redirectUrl": "https://www.youtube.com/watch?v=$1$2",
+      "patternType": "R",
+      "processMatches": "noProcessing",
+      "disabled": false,
+      "grouped": false,
+      "appliesTo": [
+        "history"
+      ]
+    },
+    {
+      "description": "Wildcard Test - Simple pattern",
+      "exampleUrl": "https://example.com/redirect?url=https://destination.com",
+      "exampleResult": "https://destination.com",
+      "error": null,
+      "includePattern": "https://example.com/redirect?url=*",
+      "excludePattern": "",
+      "patternDesc": "Test wildcard pattern",
+      "redirectUrl": "$1",
+      "patternType": "W",
+      "processMatches": "noProcessing",
+      "disabled": false,
+      "grouped": false,
+      "appliesTo": [
+        "main_frame"
+      ]
+    },
+    {
+      "description": "URL Decode Test - Encoded parameters",
+      "exampleUrl": "https://tracker.com/?dest=https%3A%2F%2Fexample.com%2Fpage",
+      "exampleResult": "https://example.com/page",
+      "error": null,
+      "includePattern": "^https://tracker\\.com/\\?dest=(.*)",
+      "excludePattern": "",
+      "patternDesc": "Decode URL-encoded destination",
+      "redirectUrl": "$1",
+      "patternType": "R",
+      "processMatches": "urlDecode",
+      "disabled": false,
+      "grouped": false,
+      "appliesTo": [
+        "main_frame"
+      ]
+    },
+    {
+      "description": "Exclude Pattern Test - Block specific paths",
+      "exampleUrl": "https://site.com/redirect",
+      "exampleResult": "https://other.com",
+      "error": null,
+      "includePattern": "^https://site\\.com/(.*)",
+      "excludePattern": "^https://site\\.com/allowed",
+      "patternDesc": "Redirect except for /allowed path",
+      "redirectUrl": "https://other.com",
+      "patternType": "R",
+      "processMatches": "noProcessing",
+      "disabled": false,
+      "grouped": false,
+      "appliesTo": [
+        "main_frame"
+      ]
+    },
+    {
+      "description": "Disabled Rule Test - Should not redirect",
+      "exampleUrl": "https://disabled-test.com",
+      "exampleResult": "https://disabled-test.com",
+      "error": null,
+      "includePattern": "^https://disabled-test\\.com$",
+      "excludePattern": "",
+      "patternDesc": "This rule is disabled",
+      "redirectUrl": "https://should-not-redirect.com",
+      "patternType": "R",
+      "processMatches": "noProcessing",
+      "disabled": true,
+      "grouped": false,
+      "appliesTo": [
+        "main_frame"
+      ]
+    },
+    {
+      "description": "Sub-frame Test - Redirect iframes",
+      "exampleUrl": "https://iframe-source.com/widget",
+      "exampleResult": "https://iframe-destination.com/widget",
+      "error": null,
+      "includePattern": "^https://iframe-source\\.com/(.*)",
+      "excludePattern": "",
+      "patternDesc": "Test sub_frame request type",
+      "redirectUrl": "https://iframe-destination.com/$1",
+      "patternType": "R",
+      "processMatches": "noProcessing",
+      "disabled": false,
+      "grouped": false,
+      "appliesTo": [
+        "sub_frame"
+      ]
+    },
+    {
+      "description": "Multiple Request Types - main_frame and sub_frame",
+      "exampleUrl": "https://multi.com/page",
+      "exampleResult": "https://destination.com/page",
+      "error": null,
+      "includePattern": "^https://multi\\.com/(.*)",
+      "excludePattern": "",
+      "patternDesc": "Apply to both main frames and iframes",
+      "redirectUrl": "https://destination.com/$1",
+      "patternType": "R",
+      "processMatches": "noProcessing",
+      "disabled": false,
+      "grouped": false,
+      "appliesTo": [
+        "main_frame",
+        "sub_frame"
+      ]
+    }
+  ]
+}
